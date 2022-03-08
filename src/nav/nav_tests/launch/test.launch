@@ -1,0 +1,9 @@
+<launch>
+    <!-- My Package launch file -->
+    <node 
+        pkg="nav_tests" 
+        type="tempnode.py" 
+        name="tempnode"  
+        output="screen">
+    </node>
+</launch>

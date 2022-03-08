@@ -1,0 +1,8 @@
+<launch>
+    <node 
+        pkg="control" 
+        type="service_test.py" 
+        name="test_service_client"  
+        output="screen">
+    </node>
+</launch>

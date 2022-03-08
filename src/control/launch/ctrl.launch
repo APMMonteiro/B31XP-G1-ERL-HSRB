@@ -1,0 +1,8 @@
+<launch>
+    <node 
+        pkg="control" 
+        type="controller_main.py" 
+        name="azm_controller_main"  
+        output="screen">
+    </node>
+</launch>

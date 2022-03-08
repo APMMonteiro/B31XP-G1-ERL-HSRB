@@ -1,0 +1,8 @@
+<launch>
+    <node 
+        pkg="nav_tests" 
+        type="semantic_getter_srv.py" 
+        name="azm_semantic_getter_srv"  
+        output="screen">
+    </node>
+</launch>
