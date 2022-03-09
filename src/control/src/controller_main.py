@@ -9,7 +9,6 @@ from math import pi
 import json
 import tf
 import tf2_ros
-from geometry_msgs.msg import Quaternion
 import sys
 # sys.path.insert(1, 'C:\Users\AZM\Documents\Uni\Year 5 Semester 2\ERL\tmc_wrs_docker\src')
 # from nav.nav_tests.src.azmutils import dynamic_euclid_dist, str_to_obj, obj_to_str

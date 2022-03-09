@@ -270,7 +270,7 @@ class SemanticToCoords():
 
 
 if __name__ == '__main__':
-    print("executing semantic.py as main")
+    print("Executing semantic.py as main")
     print("Creating SemanticToCoords obj")
     semantic_translator_obj = SemanticToCoords(r'/workspace/src/nav/nav_tests/maps/semantic.txt')
     rospy.loginfo("semantic.py is spinning")
