@@ -1,0 +1,8 @@
+<launch>
+    <node 
+        pkg="control" 
+        type="manual_add_label.py" 
+        name="manual_add_label_test_node"  
+        output="screen">
+    </node>
+</launch>
