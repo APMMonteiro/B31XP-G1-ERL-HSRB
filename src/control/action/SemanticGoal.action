@@ -1,0 +1,8 @@
+#goal         
+string semantic_goal
+---
+#result
+string result1
+---
+#feedback
+string feedback1

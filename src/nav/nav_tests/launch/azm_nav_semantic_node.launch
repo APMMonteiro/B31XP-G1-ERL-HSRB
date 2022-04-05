@@ -2,12 +2,12 @@
     <!-- My Package launch file -->
     <include file="$(find nav_tests)/launch/azm_nav_goal_node.launch"/>
     
-    <include file="$(find nav_tests)/launch/semantic_getter_srv.launch"/>
+    <include file="$(find nav_tests)/launch/semantic_getter_service.launch"/>
 
     <node 
         pkg="nav_tests" 
         type="semantic.py" 
-        name="azm_nav_semantic_node"  
+        name="azm_nav_semantic_main_node"  
         output="screen">
     </node>
 </launch>

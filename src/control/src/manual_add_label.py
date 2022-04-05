@@ -1,22 +1,22 @@
 #! /usr/bin/env python
 
-print("Starting manual_add_label.py")
+print("Running manual_add_label.py")
 
 import rospy
 from std_msgs.msg import String
 import json
 
-class manual_add_label():
+class ManualAddLabel():
     def __init__(self):
         # Base node inits
-        rospy.loginfo("Initiating manual_add_label")
-        rospy.init_node('manual_add_label')
+        rospy.init_node('manual_add_label_node')
+        rospy.loginfo("Initiated manual_add_label_node")
         self.ctrl_c = False
         self.rate = rospy.Rate(10) # 10hz
         rospy.on_shutdown(self.shutdownhook)
         # Goal publishing inits
-        self.addLabel = rospy.Publisher('/azm_ctrl/semantic_label_additions', String, queue_size=1)
-        self.sub = rospy.Subscriber('/azm_nav/semantic_manual_add', String, self.cb)
+        self.addLabel = rospy.Publisher('/azm/ctrl/semantic/label_additions', String, queue_size=1)
+        self.sub = rospy.Subscriber('/azm/nav/semantic/manual_add', String, self.cb)
         # self.odom = Odometry # FIXME
         # self.odom_sub = rospy.Subscriber('/odometry', Odometry, self.odom_cb) # TODO FIXME
 
@@ -52,8 +52,8 @@ class manual_add_label():
         self.ctrl_c = True
 
 if __name__ == '__main__':
-    print("executing manual_add_label.py as main")
-    print("Creating manual_add_label obj")
-    manual_add_label = manual_add_label()
-    print("manual_add_label.py is spinning")
+    print("Executing manual_add_label.py as main")
+    print("Creating ManualAddLabel obj")
+    manual_add_label = ManualAddLabel()
+    rospy.loginfo("ManualAddLabel obj is spinning")
     rospy.spin()

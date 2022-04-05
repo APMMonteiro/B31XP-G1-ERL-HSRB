@@ -2,7 +2,7 @@
     <node 
         pkg="control" 
         type="controller_main.py" 
-        name="azm_controller_main"  
+        name="azm_ctrl_main_node"  
         output="screen">
     </node>
 </launch>

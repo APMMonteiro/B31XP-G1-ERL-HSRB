@@ -3,6 +3,7 @@
 print("Starting service_test.py")
 
 import rospy
+from custom_srvs.srv import StringSrv, StringSrvRequest
 from std_msgs.msg import String
 
 rospy.init_node('test_service_client')
@@ -11,12 +12,13 @@ rospy.init_node('test_service_client')
 #rospy.wait_for_service('/service')
 
 #connect to service
-test_service = rospy.ServiceProxy('/azm_semantic_getter_server', String)
+test_service = rospy.ServiceProxy('/azm/nav/semantic/get_objects', StringSrv)
 
 
 #make service message to send
-request = String()
+request = StringSrvRequest()
 request.data = "bottle"
 
 #make the request and receive output
-output = test_service(request)
+output = test_service("bottle")
+print(output)

@@ -1,0 +1,9 @@
+#goal         
+float64[] goal
+---
+#result
+string result
+float64[] pose
+---
+#feedback
+float64[] pose

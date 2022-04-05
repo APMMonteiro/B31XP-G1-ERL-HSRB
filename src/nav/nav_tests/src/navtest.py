@@ -6,16 +6,19 @@ import rospy
 from std_msgs.msg import Float64MultiArray, String
 from geometry_msgs.msg import PoseStamped, Quaternion
 from move_base_msgs.msg import MoveBaseActionResult
-from azmutils import quaternion_from_euler
-
+from azmutils import quaternion_from_euler, euler_from_quaternion
+from nav_tests.msg import CoordGoalAction, CoordGoalFeedback, CoordGoalResult
+import actionlib
+import tf
+import tf2_ros
 
 class SimpleMoveBase():
     """
     This class is adapted from theconstructsim.com ROS Basics in 5 Days course - Using Python Classes in ROS
     It implements a pseudo action server to move the HSR to coordinate nav goals 
-    provided through the /azm_nav/coord_goal_listener topic
+    provided through the /azm/nav/coord_goal_listener topic
     
-    Gives simple result feeback thru /azm_nav/goal_result
+    Gives simple result feeback thru /azm/nav/goal_result
     """
 
     def __init__(self):
@@ -30,12 +33,21 @@ class SimpleMoveBase():
         self.goal = PoseStamped()
         # Goal feedback inits
         self.move_base_result_sub = rospy.Subscriber('/move_base/result', MoveBaseActionResult, self.goal_result_cb)
-        self.goal_result_pub = rospy.Publisher('/azm_nav/goal_result', String, queue_size=1)
+        self.goal_result_pub = rospy.Publisher('/azm/nav/goal_result', String, queue_size=1)
         self.result_fb = String()
         self.result_flag = False # Toggles on/off listening to goal result messages
         # Goal cancelling inits
         # Goal listening inits
-        self.goal_listener = rospy.Subscriber('/azm_nav/coord_goal_listener', Float64MultiArray, self.goal_callback)
+        self.goal_listener = rospy.Subscriber('/azm/nav/coord_goal_listener', Float64MultiArray, self.goal_callback)
+        
+        self.action_feedback = CoordGoalFeedback()
+        self.action_result = CoordGoalResult()
+        self.action_server = actionlib.SimpleActionServer('/azm/nav/coord_goal_action_server', CoordGoalAction, self.execute_goal, False)
+        self.action_server.start()
+
+        #get pose stuff
+        self.tfBuffer = tf2_ros.Buffer()
+        self.tfListener = tf2_ros.TransformListener(self.tfBuffer)
         
     
     # TODO add error checking if msg doesnt match topic type
@@ -110,6 +122,49 @@ class SimpleMoveBase():
             self.result_flag = False
             self.publish_once(self.goal_result_pub, self.result_fb, "result_feedback")
             rospy.loginfo("Stopped listening to goal result")
+
+    def get_pose(self, one, two):
+        try:
+            rospy.logdebug("attempting to get transform from {} to {}".format(one, two))
+            #(trans,rot) = self.tfListener.lookup_transform(one, two, rospy.Time(0), rospy.Duration(4))
+            transform = self.tfBuffer.lookup_transform(one, two, rospy.Time(0), rospy.Duration(1))
+            rospy.logdebug("{}, {}".format(transform.transform.translation.x, transform.transform.translation.y))
+            rospy.logdebug("rotation:{}".format(euler_from_quaternion(transform.transform.rotation)))
+            _pose = [
+                transform.transform.translation.x,
+                transform.transform.translation.y,
+                euler_from_quaternion(transform.transform.rotation)[2]]
+            return _pose
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            rospy.logwarn("Error when getting pose from {} to {}: {}".format(one, two, e))
+    
+
+    def execute_goal(self, goal):
+        self.result_flag = True
+        success = True
+        rospy.loginfo("Move base wrapper action, moving to")
+        rospy.loginfo(goal.goal)
+        _coord_goal = Float64MultiArray()
+        _coord_goal.data = goal.goal
+        self.goal_callback(_coord_goal)
+
+        # while not preempted, and not at goal
+        while self.result_flag:
+            if self.action_server.is_preempt_requested():
+                rospy.loginfo("Move base request preempted")
+                self.action_server.set_preempted()
+                success = False
+                # TODO tell robot to stop moving to goal
+                break
+            self.action_feedback.pose = self.get_pose("map", "base_link")
+            self.action_server.publish_feedback(self.action_feedback)
+            self.rate.sleep()
+
+        if success:
+            # publish result with current pose and status
+            self.action_result.result = self.result_fb.data
+            self.action_result.pose = self.get_pose("map", "base_link")
+            self.action_server.set_succeeded(self.action_result)
 
 def run_move_to_coords(obj, x, y, w):
     print("sending goal command")

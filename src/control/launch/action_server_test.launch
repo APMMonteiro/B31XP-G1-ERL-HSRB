@@ -1,0 +1,8 @@
+<launch>
+    <node 
+        pkg="control" 
+        type="action_server_test.py" 
+        name="test_action_server"  
+        output="screen">
+    </node>
+</launch>

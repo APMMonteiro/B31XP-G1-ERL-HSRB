@@ -20,19 +20,19 @@ import tf2_ros
 
 class SemanticToCoords():
     '''
-    This class will start a node that will listen for semantic nav goals on /azm_nav/semantic_goal_listener
-    and publish the corresponding coordinate goals to /azm_nav/coord_goal_listener
+    This class will start a node that will listen for semantic nav goals on /azm/nav/semantic/goal_listener
+    and publish the corresponding coordinate goals to /azm/nav/coord_goal_listener
     '''
     def __init__(self, map_path=None):
         # Base node inits
-        rospy.loginfo("Initiating semantic_node")
-        rospy.init_node('semantic_node')
+        rospy.init_node('azm_nav_semantic_main_node')
+        rospy.loginfo("Initiating azm_nav_semantic_main_node")
         self.ctrl_c = False
         self.rate = rospy.Rate(10)
         rospy.on_shutdown(self.shutdownhook)
         # Semantic goal translating inits
-        self.semantic_goal_sub = rospy.Subscriber('/azm_nav/semantic_goal_listener', String, self.sem_goal_cb)
-        self.coord_goal_pub = rospy.Publisher('/azm_nav/coord_goal_listener', Float64MultiArray, queue_size=1)
+        self.semantic_goal_sub = rospy.Subscriber('/azm/nav/semantic/goal_listener', String, self.sem_goal_cb)
+        self.coord_goal_pub = rospy.Publisher('/azm/nav/coord_goal_listener', Float64MultiArray, queue_size=1)
         self.goal = Float64MultiArray()
         # Semantic map inits
         self.semantic_map = []
@@ -40,7 +40,7 @@ class SemanticToCoords():
         if (self.semantic_map_path is not None):
             self.load_semantic_map()
         # Dynamic semantic map inits
-        self.semantic_labels_sub = rospy.Subscriber('/azm_nav/semantic_label_additions', String, self.add_to_semantic_map_callback)
+        self.semantic_labels_sub = rospy.Subscriber('/azm/nav/semantic/label_additions', String, self.add_to_semantic_map_callback)
         # Get pose inits
         #self.pose_sub = rospy.Subscriber('/tf', TFMessage, self.pose_cb)
         self.tfBuffer = tf2_ros.Buffer()
@@ -48,7 +48,7 @@ class SemanticToCoords():
         #self.tfListener = tf.TransformListener()
         self.robot_pose = [0, 0, 0]
         # CLI emu inits
-        self.cli_sub = rospy.Subscriber('/azm_nav/cli_semantic', String, self.cli)
+        self.cli_sub = rospy.Subscriber('/azm/nav/semantic/cli', String, self.cli)
 
 
     def load_semantic_map(self):
@@ -273,5 +273,5 @@ if __name__ == '__main__':
     print("Executing semantic.py as main")
     print("Creating SemanticToCoords obj")
     semantic_translator_obj = SemanticToCoords(r'/workspace/src/nav/nav_tests/maps/semantic.txt')
-    rospy.loginfo("semantic.py is spinning")
+    rospy.loginfo("SemanticToCoords obj is spinning")
     rospy.spin()
