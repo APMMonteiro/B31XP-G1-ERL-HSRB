@@ -12,6 +12,7 @@ import tf2_ros
 import sys
 from custom_srvs.srv import StringSrv, StringSrvResponse, StringSrvRequest
 from nav_tests.msg import CoordGoalAction, CoordGoalGoal
+from nav_tests.msg import SemanticGoalAction, SemanticGoalGoal
 import actionlib
 # sys.path.insert(1, 'C:\Users\AZM\Documents\Uni\Year 5 Semester 2\ERL\tmc_wrs_docker\src')
 # from nav.nav_tests.src.azmutils import dynamic_euclid_dist, str_to_obj, obj_to_str
@@ -46,13 +47,16 @@ class ControllerMain():
         self.tfListener = tf2_ros.TransformListener(self.tfBuffer)
         
         # connect to service and action servers
-        rospy.logdebug("Connecting to services and action servers")
+        rospy.loginfo("Connecting to services and action servers")
         self.semantic_getter_service = rospy.ServiceProxy('/azm/nav/semantic/get_objects', StringSrv)
         self.semantic_getter_service.wait_for_service()
-        rospy.logdebug("Controller connected to service: '/azm/nav/semantic/get_objects'")
+        rospy.loginfo("Controller connected to service: '/azm/nav/semantic/get_objects'")
         self.coord_goal_action_client = actionlib.SimpleActionClient("/azm/nav/coord_goal_action_server", CoordGoalAction)
         self.coord_goal_action_client.wait_for_server()
-        rospy.logdebug("Controller connected to action: '/azm/nav/coord_goal_action_server'")
+        rospy.loginfo("Controller connected to action: '/azm/nav/coord_goal_action_server'")
+        self.semantic_goal_action_client = actionlib.SimpleActionClient("/azm/nav/semantic_goal_action_server", SemanticGoalAction)
+        self.semantic_goal_action_client.wait_for_server()
+        rospy.loginfo("Controller connected to action: '/azm/nav/semantic_goal_action_server'")
         
 
     def publish_once(self, topic, msg, content="message"):
@@ -119,19 +123,36 @@ class ControllerMain():
         # if it does tell it to go to it and await a success
         # maybe make this navigation into an action server
         # reset used flags
-        self.semantic_goal_result.data = ""
-        self.semantic_goal_result_flag = False
-        self.publish_once(self.semantic_goal_pub, fetch_object , "fetch_object: " + fetch_object.data)
-        rospy.loginfo("Waiting to move to goal location")
-        while not self.semantic_goal_result_flag:
+
+        # self.semantic_goal_result.data = ""
+        # self.semantic_goal_result_flag = False
+        # self.publish_once(self.semantic_goal_pub, fetch_object , "fetch_object: " + fetch_object.data)
+        # rospy.loginfo("Waiting to move to goal location")
+        # while not self.semantic_goal_result_flag:
+        #     rospy.sleep(.5)
+        #     sys.stdout.write(".")
+        #     sys.stdout.flush()
+        # print("")
+        # if self.semantic_goal_result.data != "success":
+        #     rospy.loginfo("Failed to reach goal, stopping fetch task")
+        #     return
+        
+        _semantic = SemanticGoalGoal()
+        _semantic.goal = fetch_object.data
+        self.semantic_goal_action_client.send_goal(_semantic)
+        rospy.loginfo("Waiting to move to goal location.")
+        while self.semantic_goal_action_client.get_state() < 2:
             rospy.sleep(.5)
             sys.stdout.write(".")
             sys.stdout.flush()
-        print("")
-        if self.semantic_goal_result.data != "success":
-            rospy.loginfo("Failed to reach goal, stopping fetch task")
+        sys.stdout.write("\n")
+        rospy.loginfo("action state is: ")
+        rospy.loginfo(self.semantic_goal_action_client.get_state())
+        result = self.semantic_goal_action_client.get_result()
+        if result and result.result != "success":
+            rospy.loginfo("Failed to reach semantic goal, stopping fetch task")
             return
-        
+
         # if this was a success it means we're at the object's location
         # so tell the manipulation to work and await success, is this an action?
         rospy.loginfo("Reached object location, passing to manipulation (but not really)")
@@ -165,7 +186,7 @@ class ControllerMain():
         rospy.loginfo("action state is: ")
         rospy.loginfo(self.coord_goal_action_client.get_state())
         result = self.coord_goal_action_client.get_result()
-        if result.result != "success":
+        if result and result.result != "success":
             rospy.loginfo("Failed to reach goal, stopping fetch task")
             return
         # hand in the object?
