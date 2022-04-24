@@ -11,27 +11,23 @@ from nav_tests.msg import CoordGoalAction, CoordGoalFeedback, CoordGoalResult
 import actionlib
 import tf
 import tf2_ros
+from actionlib_msgs.msg import GoalID, GoalStatusArray
 
 class SimpleMoveBase():
-    """
-    This class is adapted from theconstructsim.com ROS Basics in 5 Days course - Using Python Classes in ROS
-    It implements a pseudo action server to move the HSR to coordinate nav goals 
-    provided through the /azm/nav/coord_goal_listener topic
-    
-    Gives simple result feeback thru /azm/nav/goal_result
-    """
-
     def __init__(self):
         # Base node inits
-        rospy.loginfo("Initiating basic_nav_node")
         rospy.init_node('basic_nav_node')
+        rospy.loginfo("Initiated basic_nav_node")
         self.ctrl_c = False
         self.rate = rospy.Rate(10) # 10hz
         rospy.on_shutdown(self.shutdownhook)
         # Goal publishing inits
         self.move_base_simple_publisher = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
+        self.move_base_cancel = rospy.Publisher('/move_base/cancel', GoalID, queue_size=1)
         self.goal = PoseStamped()
         # Goal feedback inits
+        self.move_base_status_sub = rospy.Subscriber('/move_base/status', GoalStatusArray, self.goal_status_cb)
+        self.current_status = GoalStatusArray()
         self.move_base_result_sub = rospy.Subscriber('/move_base/result', MoveBaseActionResult, self.goal_result_cb)
         self.goal_result_pub = rospy.Publisher('/azm/nav/goal_result', String, queue_size=1)
         self.result_fb = String()
@@ -43,6 +39,7 @@ class SimpleMoveBase():
         self.action_feedback = CoordGoalFeedback()
         self.action_result = CoordGoalResult()
         self.action_server = actionlib.SimpleActionServer('/azm/nav/coord_goal_action_server', CoordGoalAction, self.execute_goal, False)
+        self.action_server.register_preempt_callback(self.preempt_cb) #might need self?
         self.action_server.start()
 
         #get pose stuff
@@ -138,6 +135,8 @@ class SimpleMoveBase():
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
             rospy.logwarn("Error when getting pose from {} to {}: {}".format(one, two, e))
     
+    def goal_status_cb(self, status):
+        self.current_status = status
 
     def execute_goal(self, goal):
         self.result_flag = True
@@ -165,6 +164,13 @@ class SimpleMoveBase():
             self.action_result.result = self.result_fb.data
             self.action_result.pose = self.get_pose("map", "base_link")
             self.action_server.set_succeeded(self.action_result)
+
+    def preempt_cb(self):
+        # TODO publish to action cancel topic
+        print("cancelling this goal")
+        print(self.current_status.status_list)
+        self.publish_once(self.move_base_cancel, self.current_status.status_list[1].goal_id, "cancelling goal")
+        self.action_server.set_aborted()
 
 def run_move_to_coords(obj, x, y, w):
     print("sending goal command")

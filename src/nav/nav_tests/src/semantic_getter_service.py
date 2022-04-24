@@ -8,8 +8,8 @@ import json
 
 class SemanticGetterService():
     def __init__(self):
-        rospy.loginfo("Initialising semantic_getter_srv")
         rospy.init_node('azm_nav_semantic_getter_srv_node')
+        rospy.loginfo("Initialised semantic_getter_srv")
         self.service = rospy.Service('/azm/nav/semantic/get_objects', StringSrv, self.get_obj)
         self.semantic_map_path = r'/workspace/src/nav/nav_tests/maps/semantic.txt'
     

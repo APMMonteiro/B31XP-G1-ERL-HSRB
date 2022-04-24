@@ -10,6 +10,9 @@ from tf2_msgs.msg import TFMessage
 from azmutils import dynamic_euclid_dist, str_to_obj, obj_to_str, euler_from_quaternion
 import tf
 import tf2_ros
+import actionlib
+from nav_tests.msg import SemanticGoalAction, SemanticGoalFeedback, SemanticGoalResult
+from nav_tests.msg import CoordGoalAction, CoordGoalGoal
 
 ''' TODO
 5. make my own maps
@@ -26,7 +29,7 @@ class SemanticToCoords():
     def __init__(self, map_path=None):
         # Base node inits
         rospy.init_node('azm_nav_semantic_main_node')
-        rospy.loginfo("Initiating azm_nav_semantic_main_node")
+        rospy.loginfo("Initiated azm_nav_semantic_main_node")
         self.ctrl_c = False
         self.rate = rospy.Rate(10)
         rospy.on_shutdown(self.shutdownhook)
@@ -49,7 +52,19 @@ class SemanticToCoords():
         self.robot_pose = [0, 0, 0]
         # CLI emu inits
         self.cli_sub = rospy.Subscriber('/azm/nav/semantic/cli', String, self.cli)
+        
+        # Action server inits
+        self.action_feedback = SemanticGoalFeedback()
+        self.action_result = SemanticGoalResult()
+        self.action_server = actionlib.SimpleActionServer('/azm/nav/semantic_goal_action_server', SemanticGoalAction, self.execute_semantic_goal, False)
+        self.action_server.register_preempt_callback(self.preempt_cb)
+        self.action_server.start()
 
+        rospy.logdebug("Connecting to services and action servers")
+        self.coord_goal_action_client = actionlib.SimpleActionClient("/azm/nav/coord_goal_action_server", CoordGoalAction)
+        self.coord_goal_action_client.wait_for_server()
+        rospy.logdebug("Controller connected to action: '/azm/nav/coord_goal_action_server'")
+        
 
     def load_semantic_map(self):
         try:
@@ -233,11 +248,11 @@ class SemanticToCoords():
     
     def get_pose(self, one, two):
         try:
-            print("attempting to get transform from {} to {}".format(one, two))
+            # print("attempting to get transform from {} to {}".format(one, two))
             #(trans,rot) = self.tfListener.lookup_transform(one, two, rospy.Time(0), rospy.Duration(4))
             transform = self.tfBuffer.lookup_transform(one, two, rospy.Time(0), rospy.Duration(1))
-            print("{}, {}".format(transform.transform.translation.x, transform.transform.translation.y))
-            print("rotation:{}".format(euler_from_quaternion(transform.transform.rotation)))
+            # print("{}, {}".format(transform.transform.translation.x, transform.transform.translation.y))
+            # print("rotation:{}".format(euler_from_quaternion(transform.transform.rotation)))
             _pose = [
                 transform.transform.translation.x,
                 transform.transform.translation.y,
@@ -267,7 +282,46 @@ class SemanticToCoords():
         except Exception as e:
             rospy.logwarn("Bad input on CLI: {}".format(traceback.format_exc()))
 
+    def execute_semantic_goal(self, goal):
+        rospy.loginfo("Semantic goal action server called to move to:")
+        rospy.loginfo(goal.goal)
+        success = True
 
+        # find appropriate goal object
+        _coords = CoordGoalGoal()
+        for entry in self.semantic_map:
+            if entry["name"] == goal.goal:
+                rospy.loginfo("Semantic goal checks out, translating and sending")
+                if "others" in entry and "seen_from" in entry["others"]:
+                    rospy.loginfo("Contains seen_from, using that location isntead")
+                    t = entry["others"]["seen_from"]
+                    _coords.goal = [t[0], t[1], t[2]]
+                else:
+                    t = entry["coords"]
+                    _coords.goal = [t[0], t[1], t[2]]
+        
+        self.coord_goal_action_client.send_goal(_coords)
+
+        while self.coord_goal_action_client.get_state() < 2:
+            if self.action_server.is_preempt_requested():
+                rospy.loginfo("semantic goal action request preempted")
+                self.action_server.set_preempted()
+                success = False
+                # TODO tell robot to stop moving to goal
+                break
+            self.action_feedback.pose = self.get_pose("map", "base_link")
+            self.action_server.publish_feedback(self.action_feedback)
+            self.rate.sleep()
+        
+        result = self.coord_goal_action_client.get_result()
+
+        if result.result == "success" and success:
+            self.action_result.result = result.result
+            self.action_result.pose = self.get_pose("map", "base_link")
+            self.action_server.set_succeeded(self.action_result)
+
+    def preempt_cb(self):
+        self.action_server.cancel_goal()
 
 if __name__ == '__main__':
     print("Executing semantic.py as main")
